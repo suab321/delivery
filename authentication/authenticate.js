@@ -11,20 +11,21 @@ const transporter= nodemailer.createTransport({
     service:"gmail",
     auth:{
     type:"OAuth2",
-    user:"test9051571833@gmail.com",
+    user:"stowawaysuab123@gmail.com",
     clientId:"197901312379-he0vh5jq4r76if10ahv30ag8ged6f0in.apps.googleusercontent.com",
     clientSecret:"bdZnQ154LMlm-cNxsDVj0NF-",
-    refreshToken:"1/No8FlpE48nH8rpMTCL0Jf0AqShv511qEk1BgoWe9v70"
+    refreshToken:"1/XXO2jO_xcSG-TFTc3cToXvC5DlSVJr9mgqE4KroSbms"
     }
 })
 
 //verification link after registration
 const verfiy=(email,token)=>{
     const mailoption={
-        from:"test9051571833@gmail.com",
+        from:"stowawaysuab123@gmail.com",
         to:email,
-        subject:"Delivery Verificatio",
-        html:'<p>Click the link for Completing your verification process your password<a href="http://localhost:3002/authentication/verification/'+token+'">Verify</a></p>'
+        subject:"Delivery Verification",
+        text:"Click the below link for verification",
+        html:'<a href="http://localhost:3002/authentication/verification/'+token+'">'+token+'</a>'
     }
 
     transporter.sendMail(mailoption,(err,res)=>{
@@ -43,7 +44,8 @@ const resetpass=(email,token)=>{
         from:'test29051571833@gmail.com',
         to:email,
         subject:"Deliver Reset password",
-        html:'<p>Click the link for Reseting your password<a href="http://localhost:3002/authentication/reseting/'+token+'">Verify</a></p>'
+        text:"Click the link for restting password",
+        html:'<a href="http://localhost:3002/authentication/reseting/'+token+'">'+token+'</a>'
     }
 
     transporter.sendMail(mailoption,(err,res)=>{
@@ -84,12 +86,37 @@ router.post('/register',(req,res)=>{
         res.status(200).json({response:"1"});  
     })
         }
+    }).catch(err=>{
+        console.log(err);
+        const db=new temp
+        db.device_id=req.body.device_id
+        db.Name=req.body.Name
+        db.Password=req.body.Password
+        db.MobileNo=req.body.MobileNo
+        db.Email=req.body.Email
+        db.IMEI=req.body.IMEI
+        db.Flag=0
+        db.Date=new Date()
+        db.response="0"
+        db.save().then(user=>{
+            if(user){
+                jwt.sign({user:user.Email},"suab",(err,token)=>{
+                    verfiy(user.Email,token);
+                    res.status(200).json({response:"0"});
+                })
+            }
+        }).catch(err=>{
+        res.status(200).json({response:"1"});  
+    })
     })
 })
 
 //verifying when user clicks on link on gmail
 router.get('/verification/:token',(req,res)=>{
     jwt.verify(req.params.token,"suab",(err,authdata)=>{
+        if(err){
+            res.status(401).json({error:"You are not authorised to this link"});
+        }
          perma.findOne({Email:req.params.email}).then(user=>{
             if(user)
                 res.status(200).json({response:"1"})
@@ -107,7 +134,7 @@ router.get('/verification/:token',(req,res)=>{
                     db.Date=new Date()
                     db.response="1"
                     db.save().then(user=>{
-                        res.status(200).json({response:"1"});
+                        res.render('verified',{name:user.Name});
                     })
                 })
             }
@@ -121,6 +148,8 @@ router.post('/login',(req,res)=>{
         if(req.body.Password === user.Password)
             {
                 perma.findById({_id:user.id},{Password:false}).then(user=>{
+                    req.session.user=user;
+                    console.log(req.session);
                     res.status(200).json(user);
                 })
             }
@@ -174,6 +203,15 @@ router.post('/ressetingdone/:token',(req,res)=>{
 //new password frontend after clicking on link on gmail
 router.get('/reseting/:token',(req,res)=>{
     res.render('pass',{email:req.params.token})
+})
+
+//loggingOut from mongo session
+router.get('/logout',(req,res)=>{
+    if(req.session.user && req.cookies.user_sid){
+        res.clearCookie('user_sid').json("LoggedOut");
+    }
+    else
+        res.status(401).json("no session is pending!")
 })
 
 
